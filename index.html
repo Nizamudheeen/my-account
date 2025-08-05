@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic-Tac-Toe Game</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f5f5f5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+    }
+    .game-container { text-align: center; }
+    h1 { margin-bottom: 20px; }
+    .game-board {
+        display: grid;
+        grid-template-columns: repeat(3, 100px);
+        grid-template-rows: repeat(3, 100px);
+        gap: 5px;
+        margin-bottom: 20px;
+    }
+    .cell {
+        background: white;
+        border: 2px solid #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 2.5rem;
+        cursor: pointer;
+    }
+    /* Removed .taken style — rule still enforced in JS */
+    .game-mode-btn, .reset-btn {
+        padding: 10px 15px;
+        margin: 5px;
+        border: none;
+        background: #333;
+        color: white;
+        cursor: pointer;
+        border-radius: 5px;
+    }
+    .game-mode-btn:hover, .reset-btn:hover { background: #555; }
+    #message { margin-top: 15px; font-size: 1.2rem; }
+</style>
+</head>
+<body>
+<div class="game-container">
+    <h1>Tic-Tac-Toe</h1>
+    <div class="game-mode">
+        <button id="player-vs-player" class="game-mode-btn">Player vs Player</button>
+        <button id="player-vs-ai" class="game-mode-btn">Player vs AI</button>
+    </div>
+    <div id="game-board" class="game-board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+    </div>
+    <button id="reset" class="reset-btn">Restart Game</button>
+    <div id="message"></div>
+</div>
+
+<script>
+    const cells = document.querySelectorAll('.cell');
+    const resetBtn = document.getElementById('reset');
+    const message = document.getElementById('message');
+    const playerVsPlayerBtn = document.getElementById('player-vs-player');
+    const playerVsAIBtn = document.getElementById('player-vs-ai');
+
+    let board = ["", "", "", "", "", "", "", "", ""];
+    let currentPlayer = "X";
+    let gameActive = true;
+    let vsAI = false;
+
+    const winningCombinations = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+    ];
+
+    function checkWinner(b) {
+        for (let combo of winningCombinations) {
+            const [a, bIndex, c] = combo;
+            if (b[a] && b[a] === b[bIndex] && b[a] === b[c]) {
+                return b[a];
+            }
+        }
+        return b.includes("") ? null : "Tie";
+    }
+
+    function handleClick(e) {
+        const index = e.target.dataset.index;
+        if (board[index] !== "" || !gameActive) return;
+
+        board[index] = currentPlayer;
+        e.target.textContent = currentPlayer;
+
+        let result = checkWinner(board);
+        if (result) return endGame(result);
+
+        if (vsAI && currentPlayer === "X") {
+            currentPlayer = "O";
+            setTimeout(aiMove, 300);
+        } else {
+            currentPlayer = currentPlayer === "X" ? "O" : "X";
+        }
+    }
+
+    function aiMove() {
+        let move = findSmartMove();
+        board[move] = "O";
+        cells[move].textContent = "O";
+
+        let result = checkWinner(board);
+        if (result) return endGame(result);
+
+        currentPlayer = "X";
+    }
+
+    function findSmartMove() {
+        // 1. Win if possible
+        for (let i = 0; i < 9; i++) {
+            if (board[i] === "") {
+                board[i] = "O";
+                if (checkWinner(board) === "O") { board[i] = ""; return i; }
+                board[i] = "";
+            }
+        }
+        // 2. Block opponent win
+        for (let i = 0; i < 9; i++) {
+            if (board[i] === "") {
+                board[i] = "X";
+                if (checkWinner(board) === "X") { board[i] = ""; return i; }
+                board[i] = "";
+            }
+        }
+        // 3. Try to create a fork
+        for (let i = 0; i < 9; i++) {
+            if (board[i] === "") {
+                board[i] = "O";
+                let wins = countWinningChances("O");
+                board[i] = "";
+                if (wins >= 2) return i;
+            }
+        }
+        // 4. Block opponent's fork
+        for (let i = 0; i < 9; i++) {
+            if (board[i] === "") {
+                board[i] = "X";
+                let wins = countWinningChances("X");
+                board[i] = "";
+                if (wins >= 2) return i;
+            }
+        }
+        // 5. Center > Corners > Sides
+        const priorities = [4,0,2,6,8,1,3,5,7];
+        for (let spot of priorities) {
+            if (board[spot] === "") return spot;
+        }
+    }
+
+    function countWinningChances(player) {
+        let count = 0;
+        for (let combo of winningCombinations) {
+            let marks = combo.map(i => board[i]);
+            if (marks.filter(m => m === player).length === 2 && marks.includes("")) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    function endGame(result) {
+        gameActive = false;
+        message.textContent = result === "Tie" ? "It's a Tie!" : `${result} Wins!`;
+    }
+
+    function resetGame() {
+        board = ["", "", "", "", "", "", "", "", ""];
+        currentPlayer = "X";
+        gameActive = true;
+        message.textContent = "";
+        cells.forEach(cell => {
+            cell.textContent = "";
+        });
+    }
+
+    playerVsPlayerBtn.addEventListener('click', () => {
+        vsAI = false;
+        resetGame();
+    });
+
+    playerVsAIBtn.addEventListener('click', () => {
+        vsAI = true;
+        resetGame();
+    });
+
+    resetBtn.addEventListener('click', resetGame);
+    cells.forEach(cell => cell.addEventListener('click', handleClick));
+</script>
+</body>
+</html>
